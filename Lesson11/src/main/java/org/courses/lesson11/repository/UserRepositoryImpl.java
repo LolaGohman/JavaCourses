@@ -3,66 +3,122 @@ package org.courses.lesson11.repository;
 import org.courses.lesson11.dto.User;
 import org.springframework.stereotype.Repository;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public class UserRepositoryImpl implements UserRepository {
 
-    private List<User> list = new ArrayList<>(Arrays.asList(new User(1, "admin", "21232f297a57a5a743894a0e4a801fc3", true),
-            new User(2, "user", "ee11cbb19052e40b07aac0ca060c23ee", false)));
-    private final PasswordHasher passwordHasher;
+    private static final String SQL_INSERT = "insert into users(username, password, isAdmin) values ( ?, ?, ?)";
+    private static final String SQL_UPDATE = "update users set username = ?, password = ?, isAdmin = ? where id = ?";
+    private static final String SQL_DELETE = "delete from users where id = ?";
+    private static final String SQL_FIND_BY_USERNAME = "select * from users where username = ?";
+    private static final String SQL_FIND_BY_ID = "select * from users where id = ?";
+    private static final String SQL_FIND_ALL = "select * from users";
 
-    public UserRepositoryImpl(PasswordHasher passwordHasher) {
-        this.passwordHasher = passwordHasher;
+    private final ConnectionPool connectionPool;
+
+    public UserRepositoryImpl(ConnectionPool connectionPool) {
+        this.connectionPool = connectionPool;
     }
 
     @Override
-    public User create(User user) {
-        user.setPassword(passwordHasher.encrypt(user.getPassword()));
-        list.add(user);
-        return user;
+    public void create(User user) {
+        try (Connection connection = connectionPool.getConnection();
+             PreparedStatement statement = connection.prepareStatement(SQL_INSERT)) {
+            statement.setString(1, user.getUsername());
+            statement.setString(2, user.getPassword());
+            statement.setBoolean(3, user.getIsAdmin());
+            statement.execute();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
-    public User update(User user) {
-        delete(find(user.getId()).get());
-        create(user);
-        return user;
+    public void update(User user) {
+        try (Connection connection = connectionPool.getConnection();
+             PreparedStatement statement = connection.prepareStatement(SQL_UPDATE)) {
+            statement.setString(1, user.getUsername());
+            statement.setString(2, user.getPassword());
+            statement.setBoolean(3, user.getIsAdmin());
+            statement.setLong(4, user.getId());
+            statement.execute();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
-    public boolean delete(User user) {
-        list.remove(user);
-        return true;
+    public void delete(User user) {
+        try (Connection connection = connectionPool.getConnection();
+             PreparedStatement statement = connection.prepareStatement(SQL_DELETE)) {
+            statement.setLong(1, user.getId());
+            statement.execute();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public Optional<User> find(String username) {
-        for (User user : list) {
-            if (user.getUsername().equals(username)) {
-                return Optional.of(user);
+        try (Connection connection = connectionPool.getConnection();
+             PreparedStatement statement = connection.prepareStatement(SQL_FIND_BY_USERNAME)) {
+            User user = null;
+            statement.setString(1, username);
+            ResultSet set = statement.executeQuery();
+            while (set.next()) {
+                user = getUserFromResultSet(set);
             }
+            return Optional.ofNullable(user);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
-        return Optional.empty();
     }
 
     @Override
     public Optional<User> find(long id) {
-        for (User user : list) {
-            if (user.getId() == id) {
-                return Optional.of(user);
+        try (Connection connection = connectionPool.getConnection();
+             PreparedStatement statement = connection.prepareStatement(SQL_FIND_BY_ID)) {
+            User user = null;
+            statement.setLong(1, id);
+            ResultSet set = statement.executeQuery();
+            while (set.next()) {
+                user = getUserFromResultSet(set);
             }
+            return Optional.ofNullable(user);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
-        return Optional.empty();
     }
 
     @Override
     public List<User> getAllUsers() {
-        return list;
+        List<User> userList = new ArrayList<>();
+        try (Connection connection = connectionPool.getConnection();
+             PreparedStatement statement = connection.prepareStatement(SQL_FIND_ALL)) {
+            ResultSet set = statement.executeQuery();
+            while (set.next()) {
+                userList.add(getUserFromResultSet(set));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return userList;
     }
 
+    private User getUserFromResultSet(ResultSet resultSet) {
+        try {
+            return new User(resultSet.getLong("id"), resultSet.getString("username"),
+                    resultSet.getString("password"), resultSet.getBoolean("isAdmin"));
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
 }

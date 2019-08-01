@@ -21,6 +21,9 @@ repositories {
 dependencies {
     compile('org.springframework.boot:spring-boot-starter-web')
     compile('org.springframework.boot:spring-boot-starter-thymeleaf')
+    compile group: 'org.postgresql', name: 'postgresql', version: '42.2.6'
+    compile group: 'org.apache.commons', name: 'commons-dbcp2', version: '2.6.0'
+    compile group: 'org.springframework', name: 'spring-jdbc', version: '5.1.8.RELEASE'
     testCompile libs.test
 }
 

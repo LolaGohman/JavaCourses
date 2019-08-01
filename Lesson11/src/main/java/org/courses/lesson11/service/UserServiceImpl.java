@@ -1,14 +1,19 @@
 package org.courses.lesson11.service;
 
 import org.courses.lesson11.dto.User;
-import org.courses.lesson11.repository.PasswordHasher;
+import org.courses.lesson11.exception.NoRightsToChangeDatabaseException;
+import org.courses.lesson11.exception.TryToChangeDefaultUserException;
+import org.courses.lesson11.exception.UnableToSaveUserException;
 import org.courses.lesson11.repository.UserRepository;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
 import java.util.Optional;
 
 @Service
 public class UserServiceImpl implements UserService {
+
+    private static final String DEFAULT_USER_NAME = "admin";
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
@@ -18,44 +23,44 @@ public class UserServiceImpl implements UserService {
         this.passwordHasher = passwordHasher;
     }
 
-
     @Override
-    public User create(User user) {
+    public void create(User user) throws UnableToSaveUserException {
         if (checkIfUserFieldsAreNotEmpty(user) && userRepository.find(user.getUsername()).isEmpty()) {
-            return userRepository.create(user);
+            user.setPassword(passwordHasher.encrypt(user.getPassword()));
+            userRepository.create(user);
+        } else {
+            throw new UnableToSaveUserException();
         }
-        throw new IllegalArgumentException("Can not be created! Maybe, you've entered empty fields " +
-                "or username already exists!");
     }
 
     @Override
-    public User update(User user) {
-        user.setPassword(passwordHasher.encrypt(user.getPassword()));
+    public void update(User user) throws UnableToSaveUserException, TryToChangeDefaultUserException {
         if (checkIfUserCanBeUpdated(user)) {
-            if (!user.getUsername().equals("admin")) {
-                return userRepository.update(user);
+            if (userRepository.find(DEFAULT_USER_NAME).isPresent()
+                    && userRepository.find(DEFAULT_USER_NAME).get().getId() != user.getId()) {
+
+                user.setPassword(passwordHasher.encrypt(user.getPassword()));
+                userRepository.update(user);
             } else {
-                throw new IllegalArgumentException("Sorry, you can not update default user!");
+                throw new TryToChangeDefaultUserException();
             }
         } else {
-            throw new IllegalArgumentException("Can not be updated! Maybe, you've entered empty fields " +
-                    "or username already exists!");
+            throw new UnableToSaveUserException();
         }
     }
 
     @Override
-    public boolean delete(User user) {
-        if (user.getUsername().equals("admin")) {
-            throw new IllegalArgumentException("Sorry, default user can not be deleted!");
+    public void delete(User user) throws TryToChangeDefaultUserException {
+        if (user.getUsername().equals(DEFAULT_USER_NAME)) {
+            throw new TryToChangeDefaultUserException();
         }
-        return userRepository.delete(user);
+        userRepository.delete(user);
     }
 
     @Override
     public List<User> getAllUsers() {
         return userRepository.getAllUsers();
     }
-
 
     @Override
     public Optional<User> find(long id) {
@@ -67,13 +72,31 @@ public class UserServiceImpl implements UserService {
         return userRepository.find(username);
     }
 
+    @Override
+    public boolean checkIfUserCanBeLoggedIn(User user) {
+        if (userRepository.find(user.getUsername()).isPresent()) {
+            User userFromDatabase = userRepository.find(user.getUsername()).get();
+            return userFromDatabase.getPassword()
+                    .equals(passwordHasher.encrypt(user.getPassword()));
+        } else {
+            return false;
+        }
+    }
+
+    @Override
+    public void checkIfCurrentUserCanChangeDatabase(long id) throws NoRightsToChangeDatabaseException {
+        if (find(id).isEmpty() || find(id).isPresent() && !find(id).get().getIsAdmin()) {
+            throw new NoRightsToChangeDatabaseException();
+        }
+    }
+
     private boolean checkIfUserCanBeUpdated(User user) {
         if (checkIfUserFieldsAreNotEmpty(user)) {
-            if (userRepository.find(user.getUsername()).isEmpty()) {
-                return true;
-            } else {
+            if (userRepository.find(user.getUsername()).isPresent()) {
                 return userRepository.find(user.getUsername()).get().getId()
                         == user.getId();
+            } else {
+                return true;
             }
         } else {
             return false;
@@ -85,16 +108,5 @@ public class UserServiceImpl implements UserService {
                 !user.getUsername().isBlank() && !user.getPassword().isBlank();
     }
 
-    @Override
-    public boolean checkIfUserCanBeLoggedIn(User user) {
-        if (userRepository.find(user.getUsername()).isPresent()) {
-            User userFromDatabase = userRepository.find(user.getUsername()).get();
-            return userFromDatabase.getPassword()
-                    .equals(passwordHasher.encrypt(user.getPassword()));
-        } else {
-            return false;
-        }
 
-
-    }
 }

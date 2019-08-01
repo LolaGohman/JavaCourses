@@ -26,10 +26,6 @@ public class User {
         return isAdmin;
     }
 
-    public void setIsAdmin(boolean admin) {
-        this.isAdmin = admin;
-    }
-
     public long getId() {
         return id;
     }
@@ -50,7 +46,9 @@ public class User {
         this.password = password;
     }
 
-
+    public void setIsAdmin(boolean admin) {
+        isAdmin = admin;
+    }
 
     @Override
     public String toString() {
