@@ -1,0 +1,33 @@
+buildscript {
+    ext {
+        springBootVersion = '2.1.6.RELEASE'
+    }
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+    }
+}
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+
+
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile('org.springframework.boot:spring-boot-starter-web')
+    compile('org.springframework.boot:spring-boot-starter-thymeleaf')
+    compile group: 'org.springframework.boot', name: 'spring-boot-starter-security'
+    compile('org.springframework.boot:spring-boot-starter-data-jpa')
+    compile group: 'org.postgresql', name: 'postgresql', version: '42.2.6'
+    compile group: 'org.springframework', name: 'spring-jdbc', version: '5.1.8.RELEASE'
+    testCompile libs.test
+}
+
+test {
+    useTestNG {}
+}
