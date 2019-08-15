@@ -1,4 +1,4 @@
 rootProject.name = 'JavaCourses'
-include 'Lesson01'
-include 'Lesson02'
+include 'Lesson11'
+include 'Lesson12'
 
